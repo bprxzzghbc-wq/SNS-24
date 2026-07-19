@@ -412,6 +412,45 @@
 
   <!-- REGISTO -->
   <div class="tab active" id="tab-registo">
+    <div class="card" id="today-card">
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span id="today-greeting">Olá, Carla</span></h2>
+      <div id="today-content"></div>
+    </div>
+
+    <div class="card">
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>Calendário</h2>
+      <div class="cal-nav">
+        <button type="button" class="cal-nav-btn" id="cal-prev" aria-label="Mês anterior">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div id="cal-title">—</div>
+        <button type="button" class="cal-nav-btn" id="cal-next" aria-label="Mês seguinte">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+        <button type="button" class="btn secondary small cal-today-btn" id="cal-today">Hoje</button>
+        <button type="button" class="btn secondary small" id="cal-compare" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M12 3v18"/></svg>
+          Comparar com simulação
+        </button>
+      </div>
+      <div class="cal-weekdays"><span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span></div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <p class="save-note">Clica num dia para adicionar ou editar as horas. Podes navegar para qualquer mês, passado ou futuro.</p>
+    </div>
+
+    <div class="card">
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>Registos por mês</h2>
+      <div class="month-filter" id="month-filter"></div>
+      <div class="add-month-row">
+        <button type="button" class="btn secondary small" id="add-month-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;margin-right:5px;vertical-align:-2px;"><path d="M12 5v14M5 12h14"/></svg>
+          Adicionar mês
+        </button>
+        <input type="month" id="add-month-input" class="add-month-input" style="display:none;">
+      </div>
+      <div id="entries-list"></div>
+    </div>
+
     <div class="card">
       <h2><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Adicionar / editar dia</h2>
       <div class="row">
@@ -449,37 +488,20 @@
     </div>
 
     <div class="card">
-      <h2><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>Calendário</h2>
-      <div class="cal-nav">
-        <button type="button" class="cal-nav-btn" id="cal-prev" aria-label="Mês anterior">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>Dados da aplicação</h2>
+      <p class="save-note">Os teus dados ficam guardados só neste ficheiro/browser (localStorage). Exporta regularmente para teres uma cópia de segurança, ou para os levares para outro computador.</p>
+      <div class="row" style="margin-top:10px;">
+        <button type="button" class="btn secondary" id="btn-export">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:6px;vertical-align:-2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+          Exportar dados (.json)
         </button>
-        <div id="cal-title">—</div>
-        <button type="button" class="cal-nav-btn" id="cal-next" aria-label="Mês seguinte">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        <button type="button" class="btn secondary" id="btn-import">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:6px;vertical-align:-2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>
+          Importar dados (.json)
         </button>
-        <button type="button" class="btn secondary small cal-today-btn" id="cal-today">Hoje</button>
-        <button type="button" class="btn secondary small" id="cal-compare" style="display:none;">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M12 3v18"/></svg>
-          Comparar com simulação
-        </button>
+        <input type="file" id="import-file" accept="application/json,.json" style="display:none;">
       </div>
-      <div class="cal-weekdays"><span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span></div>
-      <div class="cal-grid" id="cal-grid"></div>
-      <p class="save-note">Clica num dia para adicionar ou editar as horas. Podes navegar para qualquer mês, passado ou futuro.</p>
-    </div>
-
-    <div class="card">
-      <h2><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>Registos por mês</h2>
-      <div class="month-filter" id="month-filter"></div>
-      <div class="add-month-row">
-        <button type="button" class="btn secondary small" id="add-month-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;margin-right:5px;vertical-align:-2px;"><path d="M12 5v14M5 12h14"/></svg>
-          Adicionar mês
-        </button>
-        <input type="month" id="add-month-input" class="add-month-input" style="display:none;">
-      </div>
-      <div id="entries-list"></div>
+      <p class="save-note" id="import-status"></p>
     </div>
   </div>
 
@@ -629,23 +651,6 @@
       <h2><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V6a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v14"/><path d="M8 8h8M8 12h6"/></svg>Notas gerais</h2>
       <textarea id="notes-area" placeholder="Escreve aqui notas, lembretes ou informação a organizar..."></textarea>
       <p class="save-note" id="notes-status">Guarda automaticamente.</p>
-    </div>
-
-    <div class="card">
-      <h2><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>Dados da aplicação</h2>
-      <p class="save-note">Os teus dados ficam guardados só neste ficheiro/browser (localStorage). Exporta regularmente para teres uma cópia de segurança, ou para os levares para outro computador.</p>
-      <div class="row" style="margin-top:10px;">
-        <button type="button" class="btn secondary" id="btn-export">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:6px;vertical-align:-2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
-          Exportar dados (.json)
-        </button>
-        <button type="button" class="btn secondary" id="btn-import">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:6px;vertical-align:-2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>
-          Importar dados (.json)
-        </button>
-        <input type="file" id="import-file" accept="application/json,.json" style="display:none;">
-      </div>
-      <p class="save-note" id="import-status"></p>
     </div>
   </div>
 
@@ -872,7 +877,50 @@ function renderSimTable(){
   </div>`;
 }
 
+/* Cartão "Hoje": saudação + o que há para fazer hoje (tarefas com prazo hoje/atrasadas)
+   + o turno de hoje, se já houver um registo em "versão final". Cada bloco só aparece
+   se tiver conteúdo — nunca inventa nada que não exista. */
+function renderTodayCard(){
+  const todayStr = new Date().toISOString().slice(0,10);
+  const d = new Date(todayStr+'T00:00:00');
+  const dateLabel = `${WEEKDAY_NAMES[d.getDay()]}, ${d.getDate()} de ${MONTH_NAMES[d.getMonth()+1]}`;
+
+  let html = `<p class="save-note" style="margin-top:-4px;">${dateLabel}</p>`;
+
+  const dueTasks = (DATA.tasks||[]).filter(t=>!t.done && t.due && t.due<=todayStr);
+  if(dueTasks.length){
+    const overdue = dueTasks.filter(t=>t.due<todayStr).length;
+    html += `<h3 style="font-size:13px;color:var(--p-700);font-weight:800;margin:14px 0 8px;">O que tens para fazer hoje${overdue?` <span class="badge" style="background:var(--red-light);color:var(--red);">${overdue} atrasada(s)</span>`:''}</h3>`;
+    html += dueTasks.map(t=>`
+      <div class="task-item">
+        <input type="checkbox" onchange="toggleTask(${t.id})">
+        <span>${t.text}${t.due<todayStr?` <span class="badge" style="background:var(--red-light);color:var(--red);">atrasada</span>`:''}</span>
+      </div>`).join('');
+  }
+
+  const e = DATA.entries[todayStr];
+  if(e && !e.sim){
+    const bands = [];
+    if(e.h1) bands.push(`${e.h1}h · 22h–07h`);
+    if(e.h2) bands.push(`${e.h2}h · 07h–09h`);
+    if(e.h3) bands.push(`${e.h3}h · 09h–22h`);
+    html += `<h3 style="font-size:13px;color:var(--p-700);font-weight:800;margin:14px 0 8px;">Turno de hoje</h3>
+    <div class="preview" style="margin-top:0;">
+      <div class="stat"><b>${e.th}</b><span>Horas hoje</span></div>
+      <div class="stat"><b>${fmtEUR(e.te)}</b><span>Total hoje</span></div>
+      <div class="stat"><b style="font-size:14px;">${bands.join(' · ') || '—'}</b><span>Faixas horárias</span></div>
+    </div>`;
+  }
+
+  if(!dueTasks.length && !(e && !e.sim)){
+    html += `<p class="empty" style="text-align:left;padding:4px 0 0;">Sem tarefas nem turno marcados para hoje.</p>`;
+  }
+
+  document.getElementById('today-content').innerHTML = html;
+}
+
 function renderEntries(){
+  renderTodayCard();
   const container = document.getElementById('entries-list');
   if(selectedMonth==='sim-julho'){ renderSimTable(); return; }
   const dates = Object.keys(DATA.entries).sort().reverse();
@@ -1282,11 +1330,11 @@ function renderTasks(){
 }
 function toggleTask(id){
   const t = DATA.tasks.find(t=>t.id===id);
-  if(t){ t.done = !t.done; persist(); renderTasks(); }
+  if(t){ t.done = !t.done; persist(); renderTasks(); renderTodayCard(); }
 }
 function removeTask(id){
   DATA.tasks = DATA.tasks.filter(t=>t.id!==id);
-  persist(); renderTasks();
+  persist(); renderTasks(); renderTodayCard();
 }
 document.getElementById('btn-add-task').addEventListener('click', ()=>{
   const text = document.getElementById('task-text').value.trim();
@@ -1297,6 +1345,7 @@ document.getElementById('btn-add-task').addEventListener('click', ()=>{
   document.getElementById('task-text').value='';
   document.getElementById('task-due').value='';
   renderTasks();
+  renderTodayCard();
 });
 
 /* ---------------- Notas ---------------- */
