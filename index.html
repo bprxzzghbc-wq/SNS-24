@@ -254,9 +254,33 @@
   .cal-cell.has-entry.hist-entry{background:linear-gradient(150deg,var(--amber-light),#fff7e6);border-color:#f2c879;}
   .cal-cell.sim-preview{border-style:dashed;border-color:var(--amber);background:#fffaf0;}
   .cal-cell.user-sim{border-style:dashed;border-color:var(--amber);background:linear-gradient(150deg,var(--amber-light),#fff7e6);}
+  .cal-sim-dot{position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;background:var(--amber);border:1.5px solid #fff;box-shadow:0 0 0 1px var(--amber);}
   @media(max-width:520px){
     .cal-cell .cal-val{display:none;}
   }
+
+  /* ---------- Comparação (grelha tipo calendário) ---------- */
+  .compare-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;animation:fadeIn .3s ease;}
+  .compare-cell{
+    aspect-ratio:1/1;border-radius:12px;border:1.5px solid var(--border);background:#fbfdfc;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    padding:4px;cursor:pointer;font-family:inherit;transition:all .15s ease;text-align:center;
+  }
+  .compare-cell.empty{visibility:hidden;cursor:default;}
+  .compare-cell:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
+  .compare-cell .cmp-day{font-size:12px;font-weight:800;color:var(--ink-soft);}
+  .compare-cell .cmp-real{font-size:9px;font-weight:700;color:var(--p-700);}
+  .compare-cell .cmp-sim{font-size:9px;font-weight:700;color:#92400e;}
+  .compare-cell .cmp-diff{font-size:9px;font-weight:800;}
+  .compare-cell.cmp-up{background:linear-gradient(150deg,var(--p-100),var(--p-50));border-color:var(--p-300);}
+  .compare-cell.cmp-down{background:#fef2f2;border-color:#fca5a5;}
+  .compare-cell.cmp-equal{background:linear-gradient(150deg,var(--p-100),var(--p-50));border-color:var(--p-300);}
+  .compare-cell.cmp-sim-only{border-style:dashed;border-color:var(--amber);background:#fffaf0;}
+  .compare-cell.cmp-final-only{background:#f4f6f5;}
+  .compare-cell.cmp-none{background:#fbfdfc;}
+  .compare-legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:11.5px;color:var(--muted);}
+  .compare-legend span{display:flex;align-items:center;gap:6px;}
+  .compare-legend i{width:10px;height:10px;border-radius:3px;display:inline-block;}
 
   /* ---------- Modal ---------- */
   .modal-overlay{
@@ -545,19 +569,32 @@
 
   <!-- MODAL: comparação real vs. simulação -->
   <div class="modal-overlay" id="compare-overlay">
-    <div class="modal" style="max-width:560px;">
+    <div class="modal" style="max-width:640px;">
       <div class="modal-head">
-        <h3>Real vs. simulação</h3>
+        <h3 id="compare-title">Real vs. simulação</h3>
         <button type="button" class="modal-close" id="compare-close">&times;</button>
       </div>
       <div id="compare-summary" class="preview"></div>
-      <div class="table-wrap" style="margin-top:16px;max-height:340px;overflow-y:auto;">
-        <table>
-          <thead><tr><th>Dia</th><th>Real</th><th>Simulado</th><th>Diferença</th></tr></thead>
-          <tbody id="compare-body"></tbody>
-        </table>
+      <div class="cal-nav" style="margin:16px 0 10px;">
+        <button type="button" class="cal-nav-btn" id="compare-prev" aria-label="Mês anterior">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button type="button" class="cal-nav-btn" id="compare-next" aria-label="Mês seguinte">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
       </div>
-      <div class="row" style="margin-top:18px;">
+      <div class="cal-weekdays">
+        <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+      </div>
+      <div class="compare-grid" id="compare-grid"></div>
+      <div class="compare-legend">
+        <span><i style="background:linear-gradient(150deg,var(--p-100),var(--p-50));border:1px solid var(--p-300);"></i>Real ≥ simulado</span>
+        <span><i style="background:#fef2f2;border:1px solid #fca5a5;"></i>Real &lt; simulado</span>
+        <span><i style="background:#fffaf0;border:1px dashed var(--amber);"></i>Só simulação</span>
+        <span><i style="background:#f4f6f5;border:1px solid var(--border);"></i>Só real</span>
+      </div>
+      <p class="save-note" style="margin-top:10px;">Clica num dia para o editar diretamente.</p>
+      <div class="row" style="margin-top:14px;">
         <button type="button" class="btn secondary" id="compare-close-2">Fechar</button>
       </div>
     </div>
@@ -677,10 +714,21 @@ function loadData(){
     try{
       const d = JSON.parse(raw);
       if(!d.training) d.training = [];
+      if(!d.simDrafts) d.simDrafts = {};
+      /* Migração: versões antigas guardavam a simulação misturada com os registos
+         finais (entrada com sim:true). Separa isso para o novo "caderno" próprio,
+         para nunca mais uma versão apagar a outra. */
+      Object.keys(d.entries||{}).forEach(date=>{
+        const e = d.entries[date];
+        if(e && e.sim){
+          d.simDrafts[date] = { h1:e.h1, h2:e.h2, h3:e.h3, th:e.th, te:e.te };
+          delete d.entries[date];
+        }
+      });
       return d;
     }catch(e){}
   }
-  return { entries: JSON.parse(JSON.stringify(SEED)), tasks: [], notes: '', training: JSON.parse(JSON.stringify(TRAINING_SEED)) };
+  return { entries: JSON.parse(JSON.stringify(SEED)), tasks: [], notes: '', training: JSON.parse(JSON.stringify(TRAINING_SEED)), simDrafts: {} };
 }
 let DATA = loadData();
 function persist(){ localStorage.setItem('sns24_data', JSON.stringify(DATA)); }
@@ -702,7 +750,20 @@ function calcDay(dateStr, h1, h2, h3){
 }
 function fmtEUR(v){ return v.toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2})+' €'; }
 
-/* Simulação só é relevante enquanto o mês a que se refere ainda não terminou. */
+/* Ao clicar num campo de horas com "0", limpa logo o campo para escrever
+   diretamente, sem ter de apagar o zero primeiro. */
+function clearZeroOnFocus(el){
+  el.addEventListener('focus', ()=>{
+    if(parseFloat(el.value)===0) el.value = '';
+    el.select();
+  });
+  el.addEventListener('blur', ()=>{
+    if(el.value===''){ el.value = '0'; el.dispatchEvent(new Event('input')); }
+  });
+}
+
+/* A simulação importada da folha de cálculo (Julho) só é relevante enquanto esse
+   mês ainda não terminou — depois disso deixa de aparecer como projeção pronta. */
 function simActive(){
   if(!SIM.length) return false;
   const simMonth = SIM[0].date.slice(0,7);
@@ -712,21 +773,47 @@ function simActive(){
 function baseSim(dateStr){
   return SIM.find(s=>s.date===dateStr);
 }
-/* Devolve o valor "efetivo" de um dia de simulação: se o utilizador já editou esse
-   dia (guardado como entrada com sim:true), usa o valor editado; senão usa a base importada. */
+/* Simulação "própria" do utilizador (independente da versão final e independente
+   do mês) — vive só em DATA.simDrafts, nunca mistura com DATA.entries. */
+function simDraftFor(dateStr){
+  return DATA.simDrafts[dateStr] || null;
+}
+/* Valor "efetivo" de simulação para um dia: o rascunho do utilizador tem sempre
+   prioridade; se não existir, cai para a projeção base importada (só enquanto
+   estiver ativa). Funciona em qualquer mês, não só Julho. */
 function effectiveSim(dateStr){
-  const entry = DATA.entries[dateStr];
-  if(entry && entry.sim){
-    return { date: dateStr, h1: entry.h1, h2: entry.h2, h3: entry.h3, th: entry.th, te: entry.te, edited: true };
+  const draft = DATA.simDrafts[dateStr];
+  if(draft){
+    return { date: dateStr, h1: draft.h1, h2: draft.h2, h3: draft.h3, th: draft.th, te: draft.te, edited: true };
   }
-  const base = baseSim(dateStr);
+  const base = simActive() ? baseSim(dateStr) : null;
   return base ? { ...base, edited: false } : null;
 }
 function effectiveSimList(){
   return SIM.map(s => effectiveSim(s.date));
 }
 function simFor(dateStr){
-  return simActive() ? effectiveSim(dateStr) : null;
+  return effectiveSim(dateStr);
+}
+/* Totais de simulação (rascunhos do utilizador + projeção base ativa) agrupados
+   por mês — usado no dashboard para mostrar a simulação de QUALQUER mês, não só Julho. */
+function allSimTotalsByMonth(){
+  const merged = {};
+  if(simActive()){ SIM.forEach(s=>{ merged[s.date] = effectiveSim(s.date); }); }
+  Object.keys(DATA.simDrafts).forEach(d=>{ merged[d] = effectiveSim(d); });
+  const totals = {};
+  Object.values(merged).forEach(s=>{
+    if(!s) return;
+    const key = s.date.slice(0,7);
+    if(!totals[key]) totals[key] = { h:0, e:0, count:0 };
+    totals[key].h += s.th; totals[key].e += s.te; totals[key].count += 1;
+  });
+  return totals;
+}
+function monthHasSimData(monthKey){
+  const draftInMonth = Object.keys(DATA.simDrafts).some(d=>d.startsWith(monthKey));
+  const baseInMonth = simActive() && SIM.some(s=>s.date.startsWith(monthKey));
+  return draftInMonth || baseInMonth;
 }
 
 /* ---------------- Tabs ---------------- */
@@ -759,9 +846,12 @@ function updatePreview(){
   }
 }
 [fDate,fH1,fH2,fH3].forEach(el=>el.addEventListener('input', updatePreview));
+[fH1,fH2,fH3].forEach(clearZeroOnFocus);
 
-/* Toggle Versão final / Simulação — reutilizável para o formulário e o modal */
-function wireKindToggle(containerId){
+/* Toggle Versão final / Simulação — reutilizável para o formulário e o modal.
+   "final" e "sim" são dois cadernos completamente separados: mudar o toggle nunca
+   apaga o outro, só troca qual deles estás a ver/editar neste momento. */
+function wireKindToggle(containerId, onSwitch){
   const container = document.getElementById(containerId);
   let kind = 'final';
   container.querySelectorAll('.kind-btn').forEach(b=>{
@@ -769,24 +859,40 @@ function wireKindToggle(containerId){
       kind = b.dataset.kind;
       container.querySelectorAll('.kind-btn').forEach(x=>x.classList.remove('active'));
       b.classList.add('active');
+      if(onSwitch) onSwitch(kind);
     });
   });
   return {
     get: ()=>kind,
-    set: (k)=>{
+    set: (k, silent)=>{
       kind = k;
       container.querySelectorAll('.kind-btn').forEach(x=>x.classList.toggle('active', x.dataset.kind===k));
+      if(!silent && onSwitch) onSwitch(kind);
     }
   };
 }
-const fKind = wireKindToggle('f-kind');
+
+function loadFormFieldsForKind(kind){
+  const date = fDate.value;
+  if(!date) return;
+  const rec = kind==='sim' ? DATA.simDrafts[date] : DATA.entries[date];
+  fH1.value = rec ? rec.h1 : 0;
+  fH2.value = rec ? rec.h2 : 0;
+  fH3.value = rec ? rec.h3 : 0;
+  updatePreview();
+}
+const fKind = wireKindToggle('f-kind', loadFormFieldsForKind);
 
 document.getElementById('btn-save').addEventListener('click', ()=>{
   const date = fDate.value;
   if(!date){ alert('Escolhe uma data.'); return; }
   const h1 = parseFloat(fH1.value)||0, h2 = parseFloat(fH2.value)||0, h3 = parseFloat(fH3.value)||0;
   const {th, te} = calcDay(date, h1, h2, h3);
-  DATA.entries[date] = { h1, h2, h3, th, te, hist:false, sim: fKind.get()==='sim' };
+  if(fKind.get()==='sim'){
+    DATA.simDrafts[date] = { h1, h2, h3, th, te };
+  } else {
+    DATA.entries[date] = { h1, h2, h3, th, te, hist:false };
+  }
   persist();
   renderMonthFilter();
   renderEntries();
@@ -807,7 +913,24 @@ function deleteEntry(date){
 function editEntry(date){
   const e = DATA.entries[date];
   fDate.value = date; fH1.value=e.h1; fH2.value=e.h2; fH3.value=e.h3;
-  fKind.set(e.sim ? 'sim' : 'final');
+  fKind.set('final', true);
+  updatePreview();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+/* Simulações vivem no seu próprio caderno (DATA.simDrafts), por isso têm as
+   suas próprias ações de editar/apagar — nunca tocam na versão final do mesmo dia. */
+function deleteSimDraft(date){
+  delete DATA.simDrafts[date];
+  persist();
+  renderMonthFilter();
+  renderEntries();
+  renderCalendar();
+}
+function editSimDraft(date){
+  const e = DATA.simDrafts[date];
+  if(!e) return;
+  fDate.value = date; fH1.value=e.h1; fH2.value=e.h2; fH3.value=e.h3;
+  fKind.set('sim', true);
   updatePreview();
   window.scrollTo({top:0, behavior:'smooth'});
 }
@@ -899,7 +1022,7 @@ function renderTodayCard(){
   }
 
   const e = DATA.entries[todayStr];
-  if(e && !e.sim){
+  if(e){
     const bands = [];
     if(e.h1) bands.push(`${e.h1}h · 22h–07h`);
     if(e.h2) bands.push(`${e.h2}h · 07h–09h`);
@@ -912,7 +1035,7 @@ function renderTodayCard(){
     </div>`;
   }
 
-  if(!dueTasks.length && !(e && !e.sim)){
+  if(!dueTasks.length && !e){
     html += `<p class="empty" style="text-align:left;padding:4px 0 0;">Sem tarefas nem turno marcados para hoje.</p>`;
   }
 
@@ -923,7 +1046,10 @@ function renderEntries(){
   renderTodayCard();
   const container = document.getElementById('entries-list');
   if(selectedMonth==='sim-julho'){ renderSimTable(); return; }
-  const dates = Object.keys(DATA.entries).sort().reverse();
+  /* Junta as datas dos dois cadernos (final + simulações do próprio utilizador),
+     para que uma simulação guardada num dia continue visível mesmo que também
+     exista (ou não) uma versão final nesse mesmo dia. */
+  const dates = [...new Set([...Object.keys(DATA.entries), ...Object.keys(DATA.simDrafts)])].sort().reverse();
   if(dates.length===0){ container.innerHTML = '<p class="empty">Ainda não há registos.</p>'; return; }
   const groups = {};
   dates.forEach(d=>{
@@ -939,15 +1065,28 @@ function renderEntries(){
     let rows = '';
     groups[key].forEach(d=>{
       const e = DATA.entries[d];
-      if(!e.sim){ sumH += e.th; sumE += e.te; } else { hasSim = true; }
+      const s = DATA.simDrafts[d];
       const wknd = isWeekend(d);
-      rows += `<tr>
-        <td>${d.split('-')[2]} (${WEEKDAY_NAMES[new Date(d+'T00:00:00').getDay()].slice(0,3)}) ${wknd?'<span class="badge weekend">FDS</span>':''} ${e.hist?'<span class="badge hist">histórico</span>':''} ${e.sim?'<span class="badge sim">simulação</span>':''}</td>
-        <td>${e.h1}</td><td>${e.h2}</td><td>${e.h3}</td><td>${e.th}</td><td>${fmtEUR(e.te)}</td>
-        <td class="actions">
-          <button class="btn secondary small" onclick="editEntry('${d}')">Editar</button><button class="btn danger small" onclick="deleteEntry('${d}')">Apagar</button>
-        </td>
-      </tr>`;
+      if(e){
+        sumH += e.th; sumE += e.te;
+        rows += `<tr>
+          <td>${d.split('-')[2]} (${WEEKDAY_NAMES[new Date(d+'T00:00:00').getDay()].slice(0,3)}) ${wknd?'<span class="badge weekend">FDS</span>':''} ${e.hist?'<span class="badge hist">histórico</span>':''}</td>
+          <td>${e.h1}</td><td>${e.h2}</td><td>${e.h3}</td><td>${e.th}</td><td>${fmtEUR(e.te)}</td>
+          <td class="actions">
+            <button class="btn secondary small" onclick="editEntry('${d}')">Editar</button><button class="btn danger small" onclick="deleteEntry('${d}')">Apagar</button>
+          </td>
+        </tr>`;
+      }
+      if(s){
+        hasSim = true;
+        rows += `<tr>
+          <td>${d.split('-')[2]} (${WEEKDAY_NAMES[new Date(d+'T00:00:00').getDay()].slice(0,3)}) ${wknd?'<span class="badge weekend">FDS</span>':''} <span class="badge sim">simulação</span></td>
+          <td>${s.h1}</td><td>${s.h2}</td><td>${s.h3}</td><td>${s.th}</td><td>${fmtEUR(s.te)}</td>
+          <td class="actions">
+            <button class="btn secondary small" onclick="editSimDraft('${d}')">Editar</button><button class="btn danger small" onclick="deleteSimDraft('${d}')">Apagar</button>
+          </td>
+        </tr>`;
+      }
     });
     const trMonth = (trainingByMonth()[key]) || null;
     let footnote = '';
@@ -988,6 +1127,7 @@ function renderCalendar(){
   for(let d=1; d<=daysInMonth; d++){
     const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const entry = DATA.entries[dateStr];
+    const sim = effectiveSim(dateStr);
     const wknd = isWeekend(dateStr);
     const isToday = dateStr===todayStr;
     let cls = 'cal-cell';
@@ -995,17 +1135,21 @@ function renderCalendar(){
     if(isToday) cls += ' today';
     let inner = `<span class="cal-day">${d}</span>`;
     let title = dateStr;
+    /* Versão final e simulação são independentes: uma célula pode ter as duas
+       ao mesmo tempo (mostra o valor final + uma bolinha a indicar simulação). */
     if(entry){
-      cls += entry.sim ? ' user-sim' : (' has-entry' + (entry.hist ? ' hist-entry' : ''));
-      inner += `<span class="cal-val${entry.sim ? ' sim' : ''}">${entry.sim?'~':''}${fmtEUR(entry.te)}</span>`;
-      title = `${dateStr} · ${entry.th}h · ${fmtEUR(entry.te)}${entry.hist ? ' (histórico)' : ''}${entry.sim ? ' (simulação)' : ''}`;
-    } else {
-      const sim = simFor(dateStr);
-      if(sim){
-        cls += ' sim-preview';
-        inner += `<span class="cal-val sim">~${fmtEUR(sim.te)}</span>`;
-        title = `${dateStr} · simulação: ${sim.th}h · ${fmtEUR(sim.te)}`;
-      }
+      cls += ' has-entry' + (entry.hist ? ' hist-entry' : '');
+      inner += `<span class="cal-val">${fmtEUR(entry.te)}</span>`;
+      title = `${dateStr} · ${entry.th}h · ${fmtEUR(entry.te)}${entry.hist ? ' (histórico)' : ''}`;
+    } else if(sim){
+      cls += ' sim-preview';
+      inner += `<span class="cal-val sim">~${fmtEUR(sim.te)}</span>`;
+      title = `${dateStr} · simulação: ${sim.th}h · ${fmtEUR(sim.te)}`;
+    }
+    if(sim && entry){
+      cls += ' has-sim-dot';
+      inner += `<span class="cal-sim-dot"></span>`;
+      title += ` · também tem simulação: ${sim.th}h · ${fmtEUR(sim.te)}`;
     }
     html += `<button type="button" class="${cls}" data-date="${dateStr}" title="${title}">${inner}</button>`;
   }
@@ -1014,21 +1158,11 @@ function renderCalendar(){
   for(let i=0;i<trailing;i++) html += '<div class="cal-cell empty"></div>';
   document.getElementById('cal-grid').innerHTML = html;
   document.querySelectorAll('.cal-cell[data-date]').forEach(c=>{
-    c.addEventListener('click', ()=>{
-      const date = c.dataset.date;
-      /* Dias que só têm a projeção da simulação (ainda sem registo real) abrem
-         já prontos a editar essa simulação — clicar e mudar horas fica imediato. */
-      if(!DATA.entries[date] && simFor(date)){
-        openSimEdit(date);
-      } else {
-        openDayModal(date);
-      }
-    });
+    c.addEventListener('click', ()=>{ openDayModal(c.dataset.date); });
   });
 
   const monthKey = `${y}-${String(m+1).padStart(2,'0')}`;
-  const simMonthKey = SIM.length ? SIM[0].date.slice(0,7) : null;
-  document.getElementById('cal-compare').style.display = (monthKey===simMonthKey) ? 'flex' : 'none';
+  document.getElementById('cal-compare').style.display = monthHasSimData(monthKey) ? 'flex' : 'none';
 }
 
 document.getElementById('add-month-btn').addEventListener('click', ()=>{
@@ -1073,25 +1207,15 @@ function updateModalPreview(){
   document.getElementById('m-total-e').textContent = fmtEUR(te);
 }
 [mH1,mH2,mH3].forEach(el=>el.addEventListener('input', updateModalPreview));
+[mH1,mH2,mH3].forEach(clearZeroOnFocus);
 
-const mKind = wireKindToggle('m-kind');
-
-function openDayModal(dateStr){
-  modalDate = dateStr;
-  const e = DATA.entries[dateStr];
-  const d = new Date(dateStr+'T00:00:00');
-  document.getElementById('modal-date-title').textContent =
-    `${dateStr.split('-')[2]} de ${MONTH_NAMES[parseInt(dateStr.split('-')[1])]} · ${WEEKDAY_NAMES[d.getDay()]}`;
-  mH1.value = e ? e.h1 : 0;
-  mH2.value = e ? e.h2 : 0;
-  mH3.value = e ? e.h3 : 0;
-  mKind.set(e && e.sim ? 'sim' : 'final');
-  document.getElementById('modal-delete').style.display = e ? 'inline-block' : 'none';
-  updateModalPreview();
-
+/* Separador Versão final / Simulação do modal — cada um lê/escreve o seu próprio
+   caderno (DATA.entries vs DATA.simDrafts), nunca se pisam. */
+function renderModalSimHint(){
   const hint = document.getElementById('modal-sim-hint');
-  const sim = (!e) ? simFor(dateStr) : null;
-  if(sim){
+  const entryExists = !!DATA.entries[modalDate];
+  const sim = effectiveSim(modalDate);
+  if(mKind.get()==='final' && !entryExists && sim){
     hint.style.display = 'flex';
     hint.innerHTML = `Simulação prevê ${sim.h1}h / ${sim.h2}h / ${sim.h3}h → <b>${fmtEUR(sim.te)}</b>. <button type="button" class="btn secondary small" id="modal-use-sim">Usar simulação</button>`;
     document.getElementById('modal-use-sim').addEventListener('click', ()=>{
@@ -1102,37 +1226,68 @@ function openDayModal(dateStr){
     hint.style.display = 'none';
     hint.innerHTML = '';
   }
+}
+function loadModalFieldsForKind(kind){
+  if(kind==='sim'){
+    const draft = DATA.simDrafts[modalDate];
+    const s = draft || (simActive() ? baseSim(modalDate) : null);
+    mH1.value = s ? s.h1 : 0;
+    mH2.value = s ? s.h2 : 0;
+    mH3.value = s ? s.h3 : 0;
+    document.getElementById('modal-delete').style.display = draft ? 'inline-block' : 'none';
+  } else {
+    const e = DATA.entries[modalDate];
+    mH1.value = e ? e.h1 : 0;
+    mH2.value = e ? e.h2 : 0;
+    mH3.value = e ? e.h3 : 0;
+    document.getElementById('modal-delete').style.display = e ? 'inline-block' : 'none';
+  }
+  updateModalPreview();
+  renderModalSimHint();
+}
+const mKind = wireKindToggle('m-kind', (kind)=>{ if(modalDate) loadModalFieldsForKind(kind); });
+
+function openDayModal(dateStr){
+  modalDate = dateStr;
+  const d = new Date(dateStr+'T00:00:00');
+  document.getElementById('modal-date-title').textContent =
+    `${dateStr.split('-')[2]} de ${MONTH_NAMES[parseInt(dateStr.split('-')[1])]} · ${WEEKDAY_NAMES[d.getDay()]}`;
+  /* Abre no separador que já tem dados: prioriza a versão final, senão mostra
+     a simulação (se existir), sem nunca misturar as duas. */
+  const hasFinal = !!DATA.entries[dateStr];
+  const hasSim = !!DATA.simDrafts[dateStr] || (simActive() && !!baseSim(dateStr));
+  const initialKind = hasFinal ? 'final' : (hasSim ? 'sim' : 'final');
+  mKind.set(initialKind, true);
+  loadModalFieldsForKind(initialKind);
   modalOverlay.classList.add('open');
 }
 function closeModal(){ modalOverlay.classList.remove('open'); modalDate = null; }
 
-/* Abre o modal já preparado para editar um dia da simulação (mesmo que ainda não
-   tenha sido guardado como entrada — usa o valor base da projeção). */
+/* Abre o modal já no separador de simulação (mesmo que ainda não tenha sido
+   guardada — usa o valor base da projeção como ponto de partida). */
 function openSimEdit(dateStr){
   openDayModal(dateStr);
-  if(!DATA.entries[dateStr]){
-    const sim = effectiveSim(dateStr);
-    if(sim){
-      mH1.value = sim.h1; mH2.value = sim.h2; mH3.value = sim.h3;
-      mKind.set('sim');
-      updateModalPreview();
-      const hint = document.getElementById('modal-sim-hint');
-      hint.style.display = 'none';
-      hint.innerHTML = '';
-    }
-  }
+  mKind.set('sim');
 }
 
 document.getElementById('modal-save').addEventListener('click', ()=>{
   const h1 = parseFloat(mH1.value)||0, h2 = parseFloat(mH2.value)||0, h3 = parseFloat(mH3.value)||0;
   const {th, te} = calcDay(modalDate, h1, h2, h3);
-  DATA.entries[modalDate] = { h1, h2, h3, th, te, hist:false, sim: mKind.get()==='sim' };
+  if(mKind.get()==='sim'){
+    DATA.simDrafts[modalDate] = { h1, h2, h3, th, te };
+  } else {
+    DATA.entries[modalDate] = { h1, h2, h3, th, te, hist:false };
+  }
   persist();
   closeModal();
   renderMonthFilter(); renderEntries(); renderCalendar();
 });
 document.getElementById('modal-delete').addEventListener('click', ()=>{
-  delete DATA.entries[modalDate];
+  if(mKind.get()==='sim'){
+    delete DATA.simDrafts[modalDate];
+  } else {
+    delete DATA.entries[modalDate];
+  }
   persist();
   closeModal();
   renderMonthFilter(); renderEntries(); renderCalendar();
@@ -1142,49 +1297,80 @@ document.getElementById('modal-close').addEventListener('click', closeModal);
 modalOverlay.addEventListener('click', e=>{ if(e.target===modalOverlay) closeModal(); });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && modalOverlay.classList.contains('open')) closeModal(); });
 
-/* ---------------- Comparação: real vs. simulação ---------------- */
+/* ---------------- Comparação: real vs. simulação (grelha tipo calendário) ---------------- */
 const compareOverlay = document.getElementById('compare-overlay');
+let compareDate = new Date();
 function openCompare(){
-  if(!SIM.length) return;
-  const simMonthKey = SIM[0].date.slice(0,7);
-  const simByDate = {};
-  effectiveSimList().forEach(s=>{ simByDate[s.date] = s; });
-  const allDates = new Set([
-    ...Object.keys(simByDate),
-    ...Object.keys(DATA.entries).filter(d=>d.startsWith(simMonthKey))
-  ]);
-  let realTotal=0, simTotal=0, rows='', diffDays=0, matchDays=0;
-  [...allDates].sort().forEach(d=>{
-    const real = (DATA.entries[d] && !DATA.entries[d].sim) ? DATA.entries[d] : null;
-    const sim = simByDate[d];
+  compareDate = new Date(calDate.getFullYear(), calDate.getMonth(), 1);
+  renderCompare();
+  compareOverlay.classList.add('open');
+}
+function renderCompare(){
+  const y = compareDate.getFullYear(), m = compareDate.getMonth();
+  document.getElementById('compare-title').textContent = `Real vs. simulação · ${MONTH_NAMES[m+1]} ${y}`;
+
+  const first = new Date(y,m,1);
+  const startDow = first.getDay();
+  const daysInMonth = new Date(y,m+1,0).getDate();
+
+  let realTotal=0, simTotal=0, diffDays=0, matchDays=0;
+  let html = '';
+  for(let i=0;i<startDow;i++) html += '<div class="compare-cell empty"></div>';
+  for(let d=1; d<=daysInMonth; d++){
+    const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const real = DATA.entries[dateStr] || null;
+    const sim = effectiveSim(dateStr);
     const realE = real ? real.te : 0;
     const simE = sim ? sim.te : 0;
-    realTotal += realE; simTotal += simE;
-    const diff = Math.round((realE - simE)*100)/100;
-    if(diff===0 && real && sim) matchDays++;
-    if(diff!==0) diffDays++;
-    const diffColor = diff===0 ? 'var(--muted)' : (diff>0 ? 'var(--p-700)' : 'var(--red)');
-    const diffLabel = diff===0 ? '=' : (diff>0?'+':'') + fmtEUR(diff);
-    rows += `<tr>
-      <td>${d.split('-')[2]} (${WEEKDAY_NAMES[new Date(d+'T00:00:00').getDay()].slice(0,3)})</td>
-      <td>${real ? fmtEUR(real.te) : '<span class="empty" style="padding:0;">—</span>'}</td>
-      <td>${sim ? fmtEUR(sim.te) + (sim.edited ? ' <span class="badge sim">editado</span>' : '') : '<span class="empty" style="padding:0;">—</span>'}</td>
-      <td style="color:${diffColor};font-weight:700;">${diffLabel}</td>
-    </tr>`;
+    if(real) realTotal += realE;
+    if(sim) simTotal += simE;
+
+    let cls = 'compare-cell';
+    let diffHtml = '';
+    if(real && sim){
+      const diff = Math.round((realE - simE)*100)/100;
+      if(diff===0){ cls += ' cmp-equal'; matchDays++; }
+      else if(diff>0){ cls += ' cmp-up'; diffDays++; }
+      else { cls += ' cmp-down'; diffDays++; }
+      const diffColor = diff===0?'var(--p-800)':(diff>0?'var(--p-700)':'var(--red)');
+      diffHtml = `<span class="cmp-diff" style="color:${diffColor};">${diff===0?'=':(diff>0?'+':'')+fmtEUR(diff)}</span>`;
+    } else if(real){
+      cls += ' cmp-final-only';
+    } else if(sim){
+      cls += ' cmp-sim-only';
+    } else {
+      cls += ' cmp-none';
+    }
+    let inner = `<span class="cmp-day">${d}</span>`;
+    if(real) inner += `<span class="cmp-real">${fmtEUR(real.te)}</span>`;
+    if(sim) inner += `<span class="cmp-sim">~${fmtEUR(sim.te)}</span>`;
+    inner += diffHtml;
+    const title = `${dateStr}${real?` · real: ${fmtEUR(real.te)}`:''}${sim?` · simulação: ${fmtEUR(sim.te)}`:''}`;
+    html += `<button type="button" class="${cls}" data-date="${dateStr}" title="${title}">${inner}</button>`;
+  }
+  const totalCells = startDow + daysInMonth;
+  const trailing = (7 - (totalCells % 7)) % 7;
+  for(let i=0;i<trailing;i++) html += '<div class="compare-cell empty"></div>';
+  document.getElementById('compare-grid').innerHTML = html;
+  document.querySelectorAll('#compare-grid .compare-cell[data-date]').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      closeCompare();
+      openDayModal(c.dataset.date);
+    });
   });
+
   const totalDiff = Math.round((realTotal - simTotal)*100)/100;
-  const m = parseInt(simMonthKey.split('-')[1]);
   document.getElementById('compare-summary').innerHTML = `
-    <div class="stat"><b>${fmtEUR(realTotal)}</b><span>Total real (${MONTH_NAMES[m]})</span></div>
+    <div class="stat"><b>${fmtEUR(realTotal)}</b><span>Total real</span></div>
     <div class="stat"><b>${fmtEUR(simTotal)}</b><span>Total simulado</span></div>
     <div class="stat"><b style="color:${totalDiff===0?'var(--p-800)':(totalDiff>0?'var(--p-700)':'var(--red)')}">${totalDiff>0?'+':''}${fmtEUR(totalDiff)}</b><span>Diferença total</span></div>
     <div class="stat"><b>${diffDays}</b><span>Dias diferentes · ${matchDays} iguais</span></div>
   `;
-  document.getElementById('compare-body').innerHTML = rows || '<tr><td colspan="4" class="empty">Sem dados para comparar.</td></tr>';
-  compareOverlay.classList.add('open');
 }
 function closeCompare(){ compareOverlay.classList.remove('open'); }
 document.getElementById('cal-compare').addEventListener('click', openCompare);
+document.getElementById('compare-prev').addEventListener('click', ()=>{ compareDate.setMonth(compareDate.getMonth()-1); renderCompare(); });
+document.getElementById('compare-next').addEventListener('click', ()=>{ compareDate.setMonth(compareDate.getMonth()+1); renderCompare(); });
 document.getElementById('compare-close').addEventListener('click', closeCompare);
 document.getElementById('compare-close-2').addEventListener('click', closeCompare);
 compareOverlay.addEventListener('click', e=>{ if(e.target===compareOverlay) closeCompare(); });
@@ -1194,7 +1380,6 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && compareOverlay.
 function monthlyTotals(){
   const totals = {};
   Object.keys(DATA.entries).forEach(d=>{
-    if(DATA.entries[d].sim) return; /* entradas de simulação não contam para os totais reais */
     const key = d.slice(0,7);
     if(!totals[key]) totals[key] = {h:0,e:0,days:0};
     totals[key].h += DATA.entries[d].th;
@@ -1214,20 +1399,19 @@ let selectedDashMonth = null;
 
 function renderDashboard(){
   const totals = monthlyTotals();
-  const keys = Object.keys(totals).sort();
   const now = new Date();
   const curKey = now.toISOString().slice(0,7);
   const grandE = Object.values(totals).reduce((a,b)=>a+b.e,0);
   const grandH = Object.values(totals).reduce((a,b)=>a+b.h,0);
-  const simList = simActive() ? effectiveSimList() : [];
-  const simTotal = simList.reduce((a,b)=>a+b.te,0);
+  /* Simulações de QUALQUER mês (não só Julho) aparecem aqui — inclui tanto a
+     projeção base ainda ativa como todos os "cadernos" de simulação do utilizador. */
+  const simTotals = allSimTotalsByMonth();
   const netE = grandE * 0.75;
 
-  const allKeys = keys.slice();
-  if(!allKeys.includes(curKey)) allKeys.push(curKey);
-  const simMonthKey = SIM.length ? SIM[0].date.slice(0,7) : null;
-  if(simTotal>0 && !allKeys.includes(simMonthKey)) allKeys.push(simMonthKey);
-  allKeys.sort();
+  const allKeySet = new Set(Object.keys(totals));
+  allKeySet.add(curKey);
+  Object.keys(simTotals).forEach(k=>allKeySet.add(k));
+  const allKeys = [...allKeySet].sort();
 
   const activeKey = (selectedDashMonth && allKeys.includes(selectedDashMonth)) ? selectedDashMonth : curKey;
   const activeTotal = totals[activeKey] || {h:0,e:0,days:0};
@@ -1245,7 +1429,7 @@ function renderDashboard(){
     <div class="kpi kpi-net"><span>Total sem IRS 2026 (≈75%)</span><b>${fmtEUR(netE)}</b></div>
   `;
 
-  const maxVal = Math.max(1, ...allKeys.map(k=> (totals[k]?totals[k].e:0)), simTotal);
+  const maxVal = Math.max(1, ...allKeys.map(k=> (totals[k]?totals[k].e:0)), ...Object.values(simTotals).map(s=>s.e));
   function buildBars(heightPx){
     const scale = heightPx / 150;
     let h = '';
@@ -1255,15 +1439,16 @@ function renderDashboard(){
       const m = parseInt(k.split('-')[1]);
       const sel = k===activeKey ? ' selected' : '';
       h += `<div class="bar-col${sel}" data-month="${k}"><div class="val">${val?fmtEUR(val):''}</div><div class="bar" style="height:${barH}px"></div><div class="lbl">${MONTH_NAMES[m].slice(0,3)}</div></div>`;
-      if(k===simMonthKey && simTotal>0){
-        const hs = Math.round((simTotal/maxVal)*150*scale)+2;
-        h += `<div class="bar-col" data-month="${k}"><div class="val">${fmtEUR(simTotal)}</div><div class="bar proj" style="height:${hs}px"></div><div class="lbl">${MONTH_NAMES[m].slice(0,3)} (sim.)</div></div>`;
+      if(simTotals[k] && simTotals[k].e>0){
+        const hs = Math.round((simTotals[k].e/maxVal)*150*scale)+2;
+        h += `<div class="bar-col" data-month="${k}"><div class="val">${fmtEUR(simTotals[k].e)}</div><div class="bar proj" style="height:${hs}px"></div><div class="lbl">${MONTH_NAMES[m].slice(0,3)} (sim.)</div></div>`;
       }
     });
     return h;
   }
-  const legendHtml = simTotal>0
-    ? `<span><i class="dot" style="background:linear-gradient(180deg,var(--p-400),var(--p-600))"></i>Registado</span><span><i class="dot" style="background:var(--amber)"></i>Simulação (projeção Julho)</span>`
+  const hasAnySim = Object.values(simTotals).some(s=>s.e>0);
+  const legendHtml = hasAnySim
+    ? `<span><i class="dot" style="background:linear-gradient(180deg,var(--p-400),var(--p-600))"></i>Registado</span><span><i class="dot" style="background:var(--amber)"></i>Simulação (projeção)</span>`
     : `<span><i class="dot" style="background:linear-gradient(180deg,var(--p-400),var(--p-600))"></i>Registado</span>`;
   document.getElementById('bars').innerHTML = buildBars(150);
   document.getElementById('bars-legend').innerHTML = legendHtml;
@@ -1276,11 +1461,10 @@ function renderDashboard(){
     const m = parseInt(k.split('-')[1]);
     const sel = k===activeKey ? ' row-selected' : '';
     rows += `<tr class="clickable-row${sel}" data-month="${k}"><td>${MONTH_NAMES[m]}</td><td>${t.days}</td><td>${t.h}</td><td>${fmtEUR(t.e)}</td></tr>`;
+    if(simTotals[k] && simTotals[k].e>0){
+      rows += `<tr><td>${MONTH_NAMES[m]} (simulação) <span class="badge">projeção</span></td><td>${simTotals[k].count}</td><td>${simTotals[k].h}</td><td>${fmtEUR(simTotals[k].e)}</td></tr>`;
+    }
   });
-  if(simTotal>0){
-    const simM = parseInt(simMonthKey.split('-')[1]);
-    rows += `<tr><td>${MONTH_NAMES[simM]} (simulação) <span class="badge">projeção</span></td><td>${simList.length}</td><td>${simList.reduce((a,b)=>a+b.th,0)}</td><td>${fmtEUR(simTotal)}</td></tr>`;
-  }
   const summaryHtml = rows || '<tr><td colspan="4" class="empty">Sem dados ainda.</td></tr>';
   document.getElementById('summary-body').innerHTML = summaryHtml;
   document.getElementById('summary-body-full').innerHTML = summaryHtml;
