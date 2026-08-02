@@ -952,7 +952,9 @@ let selectedMonth = 'all';
 
 function renderMonthFilter(){
   const filter = document.getElementById('month-filter');
-  const keys = [...new Set(Object.keys(DATA.entries).map(d=>d.slice(0,7)))].sort().reverse();
+  /* Inclui meses que só têm simulação (sem nenhum registo final ainda) — senão
+     não há botão para lá chegar e comparar real vs. simulação nesse mês. */
+  const keys = [...new Set([...Object.keys(DATA.entries), ...Object.keys(DATA.simDrafts)].map(d=>d.slice(0,7)))].sort().reverse();
   let html = keys.length ? `<button data-month="all" class="${selectedMonth==='all'?'active':''}">Todos</button>` : '';
   keys.forEach(key=>{
     const [y,m] = key.split('-');
